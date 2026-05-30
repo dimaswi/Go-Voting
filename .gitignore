@@ -1,0 +1,40 @@
+# Environment
+.env
+.env.dev
+.env.prod
+.env.local
+.env.*.local
+
+# Go
+backend/tmp/
+backend/uploads/candidates/*.jpg
+backend/uploads/candidates/*.jpeg
+backend/uploads/candidates/*.png
+backend/uploads/candidates/*.webp
+backend/uploads/qrcodes/*.png
+backend/bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/.cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker
+*.pid
+
+# OS
+.DS_Store
+Thumbs.db
