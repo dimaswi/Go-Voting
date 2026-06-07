@@ -37,16 +37,20 @@ func main() {
 	// ========================
 	// Run database migrations
 	// ========================
-	migrationsDir := os.Getenv("MIGRATIONS_DIR")
-	if migrationsDir == "" {
-		if _, err := os.Stat("./internal/migration"); err == nil {
-			migrationsDir = "./internal/migration"
-		} else {
-			migrationsDir = "../../internal/migration"
+	if os.Getenv("RUN_MIGRATIONS") == "true" {
+		migrationsDir := os.Getenv("MIGRATIONS_DIR")
+		if migrationsDir == "" {
+			if _, err := os.Stat("./internal/migration"); err == nil {
+				migrationsDir = "./internal/migration"
+			} else {
+				migrationsDir = "../../internal/migration"
+			}
 		}
-	}
-	if err := database.RunMigrations(context.Background(), migrationsDir); err != nil {
-		log.Fatalf("❌ Migration failed: %v", err)
+		if err := database.RunMigrations(context.Background(), migrationsDir); err != nil {
+			log.Fatalf("❌ Migration failed: %v", err)
+		}
+	} else {
+		log.Println("⏭️ Skipping automatic database migrations")
 	}
 
 	// ========================
