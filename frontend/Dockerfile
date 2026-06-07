@@ -19,6 +19,8 @@ RUN npm run build
 # Stage 2: Serve with Nginx
 FROM nginx:1.25-alpine AS production
 
+RUN apk add --no-cache curl
+
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 

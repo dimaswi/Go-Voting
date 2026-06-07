@@ -1,7 +1,8 @@
 import axios, { type AxiosError } from 'axios'
 import { toast } from 'sonner'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || ''
+const rawApiBaseUrl = (import.meta.env.VITE_API_URL || '').trim()
+const API_BASE_URL = rawApiBaseUrl.replace(/\/$/, '')
 
 export const api = axios.create({
   baseURL: `${API_BASE_URL}/api`,

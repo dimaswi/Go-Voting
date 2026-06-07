@@ -21,6 +21,7 @@ import EditVoterPage from '@/pages/admin/voters/edit'
 import ShowVoterPage from '@/pages/admin/voters/show'
 import ResultsPage from '@/pages/admin/events/results'
 import AdminLayout from '@/layouts/AdminLayout'
+import { TooltipProvider } from "@/components/ui/tooltip"
 
 // Voting pages
 import ScanPage from '@/pages/vote/ScanPage'
@@ -46,8 +47,6 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   if (!isAuthenticated) return <Navigate to="/admin/login" replace />
   return <>{children}</>
 }
-
-import { TooltipProvider } from "@/components/ui/tooltip"
 
 export default function App() {
   return (

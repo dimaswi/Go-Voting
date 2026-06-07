@@ -50,21 +50,31 @@ Password : Admin123!
 ### 1. Setup Environment
 
 ```bash
-cp .env.example .env.prod
-# Edit .env.prod dengan nilai production (JWT_SECRET, DB_PASSWORD, dll)
+cp .env.prod .env.prod.local
+# Atau edit langsung .env.prod bila dipakai lokal di server
 ```
+
+Gunakan nilai production yang valid untuk domain, password database, `APP_SECRET_KEY`, dan `JWT_SECRET`.
 
 ### 2. Jalankan
 
 ```bash
-docker compose -f docker-compose.prod.yml up --build -d
+docker compose --env-file .env.prod -f docker-compose.prod.yml up --build -d
 ```
 
 | Layanan | Port |
 |---------|------|
-| Frontend (Nginx) | 80 |
-| Backend API | 8080 (internal) |
+| Frontend (Nginx) | 5175 |
+| Backend API | 8085 |
 | PostgreSQL | 5432 (internal) |
+
+Container production yang akan aktif:
+
+- `voting_frontend`
+- `voting_backend`
+- `voting_database`
+
+`FRONTEND_URL` di `.env.prod` harus sama persis dengan origin frontend yang diizinkan backend untuk CORS, termasuk port bila frontend diakses lewat `5175`.
 
 ---
 

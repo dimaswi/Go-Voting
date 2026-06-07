@@ -37,9 +37,9 @@ RUN addgroup -S govote && adduser -S govote -G govote
 RUN chown -R govote:govote /app
 USER govote
 
-EXPOSE 8080
+EXPOSE 8085
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
+    CMD sh -c 'curl -f "http://localhost:${APP_PORT:-8085}/health" || exit 1'
 
 CMD ["./govote-api"]

@@ -6,12 +6,12 @@ services:
   # ============================================================
   db:
     image: postgres:16-alpine
-    container_name: govote_db_prod
+    container_name: voting_database
     restart: always
     env_file:
       - .env.prod
     environment:
-      POSTGRES_DB: Go-Vote
+      POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
@@ -20,7 +20,7 @@ services:
     networks:
       - govote_internal_net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d Go-Vote"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -35,12 +35,14 @@ services:
       context: ./backend
       dockerfile: Dockerfile
       target: production
-    container_name: govote_backend_prod
+    container_name: voting_backend
     restart: always
     env_file:
       - .env.prod
     environment:
       DB_HOST: db
+    ports:
+      - "8085:8085"
     volumes:
       - uploads_prod:/app/uploads
     depends_on:
@@ -58,29 +60,23 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       target: production
-    container_name: govote_frontend_prod
+      args:
+        VITE_API_URL: "${VITE_API_URL:-}"
+    container_name: voting_frontend
     restart: always
     ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/certs:/etc/nginx/certs:ro
-      - ./nginx/nginx.prod.conf:/etc/nginx/conf.d/default.conf:ro
+      - "5175:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       - govote_external_net
 
 volumes:
   postgres_prod_data:
-    name: govote_postgres_prod
-    driver: local
-    driver_opts:
-      type: none
-      device: /opt/govote/postgres_data
-      o: bind
+    name: voting_postgres_data
   uploads_prod:
-    name: govote_uploads_prod
+    name: voting_uploads_data
 
 networks:
   govote_internal_net:
