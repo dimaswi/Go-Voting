@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils"
 import { Link, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import { Voter } from "@/types"
-import { SlidersHorizontal, Download, Check, ChevronsUpDown } from "lucide-react"
+import { SlidersHorizontal, Download, Check, ChevronsUpDown, Printer } from "lucide-react"
 
 export default function VotersPageIndex() {
   const qc = useQueryClient()
@@ -31,6 +31,7 @@ export default function VotersPageIndex() {
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [openStatus, setOpenStatus] = useState(false)
+  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({})
 
   const statuses = [
     { value: "all", label: "All", color: "bg-slate-300" },
@@ -71,6 +72,29 @@ export default function VotersPageIndex() {
     }
   }
 
+  const handlePrintBulk = async () => {
+    const selectedKeys = Object.keys(rowSelection).filter(k => rowSelection[k])
+    if (selectedKeys.length === 0) {
+      toast.error("Pilih minimal satu voter untuk dicetak")
+      return
+    }
+
+    try {
+      const toastId = toast.loading("Generating PDF...")
+      const response = await votersAPI.printBulk(selectedKeys)
+      const blob = new Blob([response.data], { type: 'application/pdf' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `bulk_voters_qr_${new Date().getTime()}.pdf`
+      a.click()
+      window.URL.revokeObjectURL(url)
+      toast.success("PDF berhasil diunduh!", { id: toastId })
+    } catch (err) {
+      toast.error("Gagal men-generate PDF")
+    }
+  }
+
   const columns = getColumns((id) => generateQRMutation.mutate(id), handleDelete)
 
   return (
@@ -82,10 +106,18 @@ export default function VotersPageIndex() {
             Kelola data pemilih dan generate QR code.
           </p>
         </div>
-        <Button onClick={() => navigate('/admin/voters/create')}>
-          <Plus className="mr-2 h-4 w-4" />
-          Tambah Voter
-        </Button>
+        <div className="flex items-center gap-2">
+          {Object.keys(rowSelection).filter(k => rowSelection[k]).length > 0 && (
+            <Button variant="outline" onClick={handlePrintBulk}>
+              <Printer className="mr-2 h-4 w-4" />
+              Print Selected QR
+            </Button>
+          )}
+          <Button onClick={() => navigate('/admin/voters/create')}>
+            <Plus className="mr-2 h-4 w-4" />
+            Tambah Voter
+          </Button>
+        </div>
       </div>
 
       <div className="flex items-center justify-between gap-2">
@@ -165,7 +197,7 @@ export default function VotersPageIndex() {
           <div className="h-32 bg-muted rounded animate-pulse" />
         </div>
       ) : (
-        <DataTable columns={columns} data={voters} />
+        <DataTable columns={columns} data={voters} rowSelection={rowSelection} setRowSelection={setRowSelection} />
       )}
     </div>
   )

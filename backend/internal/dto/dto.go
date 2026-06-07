@@ -132,6 +132,10 @@ type AssignVotersRequest struct {
 	VoterIDs []uuid.UUID `json:"voter_ids" binding:"required,min=1"`
 }
 
+type PrintBulkVotersRequest struct {
+	VoterIDs []uuid.UUID `json:"voter_ids" binding:"required,min=1"`
+}
+
 // ========================
 // VOTING (PUBLIC)
 // ========================
@@ -221,11 +225,17 @@ type PaginateMeta struct {
 	TotalPages int `json:"total_pages"`
 }
 
+type MonthlyVoterStat struct {
+	Name   string `json:"name" db:"name"`
+	Voters int    `json:"voters" db:"voters"`
+}
+
 type DashboardStats struct {
-	TotalEvents       int `json:"total_events"`
-	ActiveEvents      int `json:"active_events"`
-	TotalCandidates   int `json:"total_candidates"`
-	TotalVoters       int `json:"total_voters"`
-	TotalVoted        int `json:"total_voted"`
-	TotalNotVoted     int `json:"total_not_voted"`
+	TotalEvents     int                `json:"total_events" db:"total_events"`
+	ActiveEvents    int                `json:"active_events" db:"active_events"`
+	TotalCandidates int                `json:"total_candidates"`
+	TotalVoters     int                `json:"total_voters"`
+	TotalVoted      int                `json:"total_voted"`
+	TotalNotVoted   int                `json:"total_not_voted"`
+	MonthlyData     []MonthlyVoterStat `json:"monthly_data"`
 }

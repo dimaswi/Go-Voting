@@ -90,6 +90,10 @@ export interface EventCandidate {
   full_name: string;
   photo_url: string | null;
   vision: string | null;
+  mission?: string | null;
+  work_program?: string | null;
+  goals?: string | null;
+  motto?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -193,6 +197,11 @@ export interface EventResultResponse {
 // DASHBOARD
 // ============================================================
 
+export interface MonthlyVoterStat {
+  name: string;
+  voters: number;
+}
+
 export interface DashboardStats {
   total_events: number;
   active_events: number;
@@ -200,6 +209,7 @@ export interface DashboardStats {
   total_voters: number;
   total_voted: number;
   total_not_voted: number;
+  monthly_data: MonthlyVoterStat[];
 }
 
 // ============================================================

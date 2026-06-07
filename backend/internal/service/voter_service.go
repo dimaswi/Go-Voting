@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"errors"
@@ -12,6 +13,8 @@ import (
 	"go-vote/internal/utils"
 
 	"github.com/google/uuid"
+	"github.com/jung-kurt/gofpdf"
+	"github.com/skip2/go-qrcode"
 )
 
 var (
@@ -171,4 +174,83 @@ func (s *VoterService) generateUniqueCode(ctx context.Context) (string, error) {
 		}
 	}
 	return "", errors.New("failed to generate unique code after 10 attempts")
+}
+
+// GenerateBulkQRPDF generates a PDF containing QR codes for selected voters
+func (s *VoterService) GenerateBulkQRPDF(ctx context.Context, voterIDs []uuid.UUID) (*bytes.Buffer, error) {
+	if len(voterIDs) == 0 {
+		return nil, errors.New("no voters selected")
+	}
+
+	var voters []model.Voter
+	for _, id := range voterIDs {
+		v, err := s.voterRepo.FindByID(ctx, id)
+		if err == nil {
+			voters = append(voters, *v)
+		}
+	}
+
+	if len(voters) == 0 {
+		return nil, errors.New("no valid voters found")
+	}
+
+	pdf := gofpdf.New("P", "mm", "A4", "")
+	pdf.AddPage()
+
+	cols := 4
+	rows := 5
+
+	pageWidth, pageHeight := pdf.GetPageSize()
+	marginX, marginY := 10.0, 10.0
+
+	colWidth := (pageWidth - 2*marginX) / float64(cols)
+	rowHeight := (pageHeight - 2*marginY) / float64(rows)
+
+	idx := 0
+	for _, v := range voters {
+		if idx > 0 && idx%(cols*rows) == 0 {
+			pdf.AddPage()
+			idx = 0
+		}
+
+		col := idx % cols
+		row := idx / cols
+
+		x := marginX + float64(col)*colWidth
+		y := marginY + float64(row)*rowHeight
+
+		qrBytes, err := qrcode.Encode(v.UniqueCode, qrcode.Medium, 256)
+		if err != nil {
+			continue
+		}
+
+		opt := gofpdf.ImageOptions{ImageType: "PNG"}
+		imageName := v.ID.String()
+		pdf.RegisterImageOptionsReader(imageName, opt, bytes.NewReader(qrBytes))
+
+		qrSize := 38.0
+		qrX := x + (colWidth-qrSize)/2
+		qrY := y + 2.0
+
+		pdf.ImageOptions(imageName, qrX, qrY, qrSize, qrSize, false, opt, 0, "")
+
+		pdf.SetFont("Arial", "B", 9)
+		pdf.SetXY(x, qrY+qrSize)
+		pdf.CellFormat(colWidth, 4, v.FullName, "", 1, "C", false, 0, "")
+
+		pdf.SetFont("Arial", "", 8)
+		pdf.SetXY(x, qrY+qrSize+4)
+		pdf.CellFormat(colWidth, 4, "Kode: "+v.UniqueCode, "", 1, "C", false, 0, "")
+
+		// Draw border mepet
+		pdf.Rect(x+1, y+1, colWidth-2, qrSize+9, "D")
+
+		idx++
+	}
+
+	var buf bytes.Buffer
+	if err := pdf.Output(&buf); err != nil {
+		return nil, err
+	}
+	return &buf, nil
 }

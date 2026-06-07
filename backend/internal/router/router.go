@@ -123,6 +123,7 @@ func Setup(cfg *config.Config, h *Handlers) *gin.Engine {
 		{
 			voters.GET("", h.Voter.List)
 			voters.POST("", h.Voter.Create)
+			voters.POST("/print-bulk", h.Voter.PrintBulk)
 			voters.GET("/:id", h.Voter.GetByID)
 			voters.PUT("/:id", h.Voter.Update)
 			voters.DELETE("/:id", h.Voter.Delete)

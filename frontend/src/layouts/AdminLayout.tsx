@@ -128,7 +128,7 @@ export default function AdminLayout() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto px-4 md:px-6 lg:px-8 pt-4 pb-0 max-w-full mx-auto w-full flex flex-col relative">
+        <main className="flex-1 overflow-y-auto px-4 md:px-6 lg:px-8 pt-4 pb-8 max-w-full mx-auto w-full flex flex-col relative">
           <Outlet />
         </main>
       </SidebarInset>

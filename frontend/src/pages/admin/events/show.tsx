@@ -8,7 +8,7 @@ import { toast } from "sonner"
 import {
   ArrowLeft, Calendar, Users, UserCheck, BarChart2,
   Plus, Trash2, Play, Square, ExternalLink,
-  CheckSquare, Copy, Edit
+  CheckSquare, Copy, Edit, Printer
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -70,6 +70,7 @@ export default function ShowEventPage() {
     onSuccess: () => {
       toast.success('Status event diperbarui!')
       qc.invalidateQueries({ queryKey: ['event', id] })
+      qc.invalidateQueries({ queryKey: ['events'] })
     },
   })
 
@@ -109,6 +110,8 @@ export default function ShowEventPage() {
   const allCandidates: Candidate[] = allCandidatesData?.data?.data || []
   const allVoters: Voter[] = allVotersData?.data?.data || []
 
+  const maxExistingNumber = eventCandidates.reduce((max, ec) => Math.max(max, ec.candidate_number || 0), 0)
+
   if (isLoading) return (
     <div className="space-y-4">
       {[...Array(3)].map((_, i) => <div key={i} className="h-24 bg-muted animate-pulse rounded-xl" />)}
@@ -130,10 +133,33 @@ export default function ShowEventPage() {
   const handleAssignCandidates = () => {
     const candidates = Object.entries(selectedCandidates).map(([candidateId, data], idx) => ({
       candidate_id: candidateId,
-      candidate_number: data.number || idx + 1,
-      sort_order: idx,
+      candidate_number: data.number || maxExistingNumber + idx + 1,
+      sort_order: eventCandidates.length + idx,
     }))
     assignCandidatesMutation.mutate(candidates)
+  }
+
+  const handlePrintEventVoters = async () => {
+    if (eventVoters.length === 0) {
+      toast.error("Tidak ada voter di event ini")
+      return
+    }
+
+    try {
+      const toastId = toast.loading("Generating PDF...")
+      const voterIds = eventVoters.map(ev => ev.voter_id)
+      const response = await votersAPI.printBulk(voterIds)
+      const blob = new Blob([response.data], { type: 'application/pdf' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `event_voters_qr_${new Date().getTime()}.pdf`
+      a.click()
+      window.URL.revokeObjectURL(url)
+      toast.success("PDF berhasil diunduh!", { id: toastId })
+    } catch (err) {
+      toast.error("Gagal men-generate PDF")
+    }
   }
 
   return (
@@ -298,9 +324,14 @@ export default function ShowEventPage() {
               <div>
                 <div className="flex items-center justify-between px-5 py-4 border-b">
                   <p className="text-sm text-muted-foreground">{eventVoters.length} voter di-assign</p>
-                  <Button size="sm" onClick={() => setShowAssignVoters(true)}>
-                    <Plus className="w-4 h-4 mr-2" /> Assign Voter
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={handlePrintEventVoters} disabled={eventVoters.length === 0}>
+                      <Printer className="w-4 h-4 mr-2" /> Print Semua QR
+                    </Button>
+                    <Button size="sm" onClick={() => setShowAssignVoters(true)}>
+                      <Plus className="w-4 h-4 mr-2" /> Assign Voter
+                    </Button>
+                  </div>
                 </div>
                 {eventVoters.length === 0 ? (
                   <div className="py-12 text-center">
@@ -417,7 +448,7 @@ export default function ShowEventPage() {
                         delete n[c.id]
                         return n
                       }
-                      return { ...prev, [c.id]: { number: Object.keys(prev).length + 1 } }
+                      return { ...prev, [c.id]: { number: maxExistingNumber + Object.keys(prev).length + 1 } }
                     })
                   }}
                 >
@@ -430,7 +461,7 @@ export default function ShowEventPage() {
                   {isSelected && (
                     <Input
                       type="number"
-                      value={selectedCandidates[c.id]?.number || idx + 1}
+                      value={selectedCandidates[c.id]?.number || ''}
                       min={1}
                       onClick={e => e.stopPropagation()}
                       onChange={e => setSelectedCandidates(prev => ({

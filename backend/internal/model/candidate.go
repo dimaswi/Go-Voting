@@ -50,7 +50,11 @@ type EventCandidate struct {
 	UpdatedAt       time.Time `db:"updated_at"       json:"updated_at"`
 
 	// Joined from candidates
-	FullName   string  `db:"full_name"  json:"full_name,omitempty"`
-	PhotoURL   *string `db:"photo_url"  json:"photo_url,omitempty"`
-	Vision     *string `db:"vision"     json:"vision,omitempty"`
+	FullName    string  `db:"full_name"  json:"full_name,omitempty"`
+	PhotoURL    *string `db:"photo_url"  json:"photo_url,omitempty"`
+	Vision      *string `db:"vision"     json:"vision,omitempty"`
+	Mission     *string `db:"mission"    json:"mission,omitempty"`
+	WorkProgram *string `db:"work_program" json:"work_program,omitempty"`
+	Goals       *string `db:"goals"      json:"goals,omitempty"`
+	Motto       *string `db:"motto"      json:"motto,omitempty"`
 }

@@ -1,5 +1,6 @@
 import { ColumnDef } from "@tanstack/react-table"
 import { Voter } from "@/types"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { MoreHorizontal, Edit, Trash2, QrCode, Download } from "lucide-react"
 import {
@@ -19,6 +20,25 @@ export const getColumns = (
   onGenerateQR: (id: string) => void,
   onDelete: (id: string) => void
 ): ColumnDef<Voter>[] => [
+    {
+      id: "select",
+      header: ({ table }) => (
+        <Checkbox
+          checked={table.getIsAllPageRowsSelected()}
+          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+          aria-label="Select all"
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(value) => row.toggleSelected(!!value)}
+          aria-label="Select row"
+        />
+      ),
+      enableSorting: false,
+      enableHiding: false,
+    },
     {
       accessorKey: "full_name",
       header: "Nama",

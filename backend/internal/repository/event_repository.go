@@ -2,9 +2,11 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 
+	"go-vote/internal/dto"
 	"go-vote/internal/model"
 
 	"github.com/google/uuid"
@@ -21,6 +23,7 @@ type EventRepository interface {
 	UpdateStatus(ctx context.Context, id uuid.UUID, status model.EventStatus) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	CountByStatus(ctx context.Context) (map[string]int, error)
+	GetDashboardStats(ctx context.Context) (*dto.DashboardStats, error)
 }
 
 type eventRepo struct{ db *sqlx.DB }
@@ -167,4 +170,58 @@ func (r *eventRepo) CountByStatus(ctx context.Context) (map[string]int, error) {
 		result[status] = count
 	}
 	return result, nil
+}
+
+func (r *eventRepo) GetDashboardStats(ctx context.Context) (*dto.DashboardStats, error) {
+	var stats dto.DashboardStats
+
+	// Total and Active Events
+	err := r.db.GetContext(ctx, &stats, `
+		SELECT 
+			COUNT(*) AS total_events,
+			COUNT(*) FILTER (WHERE status = 'active') AS active_events
+		FROM voting_events`)
+	if err != nil {
+		return nil, err
+	}
+
+	// Total Candidates
+	err = r.db.GetContext(ctx, &stats.TotalCandidates, `SELECT COUNT(*) FROM candidates`)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+
+	// Total Voters
+	err = r.db.GetContext(ctx, &stats.TotalVoters, `SELECT COUNT(*) FROM voters`)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+
+	// Total Voted
+	err = r.db.GetContext(ctx, &stats.TotalVoted, `SELECT COUNT(DISTINCT voter_id) FROM event_voters WHERE has_voted = TRUE`)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+
+	stats.TotalNotVoted = stats.TotalVoters - stats.TotalVoted
+
+	// Monthly Data
+	var monthlyData []dto.MonthlyVoterStat
+	err = r.db.SelectContext(ctx, &monthlyData, `
+		SELECT TO_CHAR(voted_at, 'Mon') as name, COUNT(voter_id) as voters
+		FROM event_voters 
+		WHERE has_voted = TRUE 
+		  AND voted_at >= CURRENT_DATE - INTERVAL '6 months'
+		GROUP BY TO_CHAR(voted_at, 'Mon'), DATE_TRUNC('month', voted_at)
+		ORDER BY DATE_TRUNC('month', voted_at)
+	`)
+	if err != nil && err != sql.ErrNoRows {
+		// Log or ignore
+	}
+	if monthlyData == nil {
+		monthlyData = []dto.MonthlyVoterStat{}
+	}
+	stats.MonthlyData = monthlyData
+
+	return &stats, nil
 }

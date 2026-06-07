@@ -11,21 +11,6 @@ import {
 } from 'recharts'
 import { cn } from '@/lib/utils'
 
-// Simulated data for the area chart (since the backend doesn't provide historical data yet)
-const overviewData = [
-  { name: 'Jan', voters: 180 },
-  { name: 'Feb', voters: 240 },
-  { name: 'Mar', voters: 200 },
-  { name: 'Apr', voters: 310 },
-  { name: 'May', voters: 340 },
-  { name: 'Jun', voters: 290 },
-  { name: 'Jul', voters: 380 },
-  { name: 'Aug', voters: 420 },
-  { name: 'Sep', voters: 410 },
-  { name: 'Oct', voters: 390 },
-  { name: 'Nov', voters: 460 },
-  { name: 'Dec', voters: 520 },
-]
 
 export default function DashboardPage() {
   const { data: statsData } = useQuery({
@@ -38,6 +23,7 @@ export default function DashboardPage() {
     total_events: 0, active_events: 0,
     total_candidates: 0, total_voters: 0,
     total_voted: 0, total_not_voted: 0,
+    monthly_data: [],
   }
 
   // Use real data from backend for the pie chart
@@ -134,7 +120,7 @@ export default function DashboardPage() {
           <h2 className="text-sm font-semibold mb-6">Pertumbuhan Partisipasi Voting</h2>
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={overviewData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <AreaChart data={stats.monthly_data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorVoters" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3} />

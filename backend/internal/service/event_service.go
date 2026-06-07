@@ -170,12 +170,5 @@ func (s *EventService) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 func (s *EventService) GetDashboardStats(ctx context.Context) (*dto.DashboardStats, error) {
-	counts, err := s.eventRepo.CountByStatus(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &dto.DashboardStats{
-		TotalEvents:  counts["draft"] + counts["active"] + counts["finished"] + counts["closed"],
-		ActiveEvents: counts["active"],
-	}, nil
+	return s.eventRepo.GetDashboardStats(ctx)
 }

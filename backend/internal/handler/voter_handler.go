@@ -151,6 +151,25 @@ func (h *VoterHandler) GenerateQR(c *gin.Context) {
 	}})
 }
 
+// POST /api/admin/voters/print-bulk
+func (h *VoterHandler) PrintBulk(c *gin.Context) {
+	var req dto.PrintBulkVotersRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	pdfBuf, err := h.voterService.GenerateBulkQRPDF(c.Request.Context(), req.VoterIDs)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	c.Header("Content-Type", "application/pdf")
+	c.Header("Content-Disposition", `attachment; filename="bulk_voters_qr.pdf"`)
+	c.Data(http.StatusOK, "application/pdf", pdfBuf.Bytes())
+}
+
 // GET /api/admin/events/:id/voters
 func (h *VoterHandler) ListByEvent(c *gin.Context) {
 	eventID, err := uuid.Parse(c.Param("id"))

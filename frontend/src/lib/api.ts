@@ -112,6 +112,8 @@ export const votersAPI = {
   update: (id: string, data: object) => api.put(`/admin/voters/${id}`, data),
   delete: (id: string) => api.delete(`/admin/voters/${id}`),
   generateQR: (id: string) => api.post(`/admin/voters/${id}/generate-qr`),
+  printBulk: (voterIds: string[]) => 
+    api.post('/admin/voters/print-bulk', { voter_ids: voterIds }, { responseType: 'blob' }),
   // Event voters
   listByEvent: (eventId: string, params?: Record<string, string | number>) =>
     api.get(`/admin/events/${eventId}/voters`, { params }),

@@ -144,7 +144,7 @@ func NewEventCandidateRepository(db *sqlx.DB) EventCandidateRepository {
 func (r *eventCandidateRepo) ListByEvent(ctx context.Context, eventID uuid.UUID) ([]model.EventCandidate, error) {
 	var items []model.EventCandidate
 	err := r.db.SelectContext(ctx, &items, `
-		SELECT ec.*, c.full_name, c.photo_url, c.vision
+		SELECT ec.*, c.full_name, c.photo_url, c.vision, c.mission, c.work_program, c.goals, c.motto
 		FROM event_candidates ec
 		JOIN candidates c ON c.id = ec.candidate_id
 		WHERE ec.event_id = $1
