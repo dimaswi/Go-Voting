@@ -107,12 +107,6 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div className="mt-6 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-            <p className="text-xs text-amber-400 text-center">
-              🔒 Default: <strong>admin</strong> / <strong>Admin123!</strong>
-              <br />Segera ganti password setelah login pertama.
-            </p>
-          </div>
         </div>
       </div>
     </div>

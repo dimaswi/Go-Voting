@@ -23,7 +23,11 @@ import { cn } from "@/lib/utils"
 import { Link, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import { Voter } from "@/types"
-import { SlidersHorizontal, Download, Check, ChevronsUpDown, Printer } from "lucide-react"
+import { SlidersHorizontal, Download, Check, ChevronsUpDown, Printer, Trash2 } from "lucide-react"
+import { VoterUploader } from "./components/VoterUploader"
+import { PrintQRDialog } from "./components/PrintQRDialog"
+import { RowSelectionState } from "@tanstack/react-table"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 
 export default function VotersPageIndex() {
   const qc = useQueryClient()
@@ -32,6 +36,8 @@ export default function VotersPageIndex() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [openStatus, setOpenStatus] = useState(false)
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({})
+  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [showBulkDelete, setShowBulkDelete] = useState(false)
 
   const statuses = [
     { value: "all", label: "All", color: "bg-slate-300" },
@@ -44,7 +50,7 @@ export default function VotersPageIndex() {
     queryFn: () => votersAPI.list({
       search,
       status: statusFilter === "all" ? "" : statusFilter,
-      per_page: 100
+      per_page: 100000
     }),
   })
 
@@ -53,7 +59,6 @@ export default function VotersPageIndex() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => votersAPI.delete(id),
     onSuccess: () => {
-      toast.success("Voter berhasil dihapus!")
       qc.invalidateQueries({ queryKey: ["voters"] })
     },
   })
@@ -67,9 +72,43 @@ export default function VotersPageIndex() {
   })
 
   const handleDelete = (id: string) => {
-    if (window.confirm("Apakah Anda yakin ingin menghapus voter ini?")) {
-      deleteMutation.mutate(id)
+    setDeleteId(id)
+  }
+
+  const confirmDelete = () => {
+    if (!deleteId) return
+    toast.promise(deleteMutation.mutateAsync(deleteId).finally(() => setDeleteId(null)), {
+      loading: "Menghapus voter...",
+      success: "Voter berhasil dihapus!",
+      error: "Gagal menghapus voter"
+    })
+  }
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: (ids: string[]) => Promise.all(ids.map(id => votersAPI.delete(id))),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["voters"] })
+      setRowSelection({})
+    },
+  })
+
+  const handleBulkDelete = () => {
+    const selectedKeys = Object.keys(rowSelection).filter(k => rowSelection[k])
+    if (selectedKeys.length === 0) return
+    setShowBulkDelete(true)
+  }
+
+  const confirmBulkDelete = () => {
+    const selectedKeys = Object.keys(rowSelection).filter(k => rowSelection[k])
+    if (selectedKeys.length === 0) {
+      setShowBulkDelete(false)
+      return
     }
+    toast.promise(bulkDeleteMutation.mutateAsync(selectedKeys).finally(() => setShowBulkDelete(false)), {
+      loading: "Menghapus voter terpilih...",
+      success: "Voter terpilih berhasil dihapus!",
+      error: "Gagal menghapus voter"
+    })
   }
 
   const handlePrintBulk = async () => {
@@ -107,11 +146,19 @@ export default function VotersPageIndex() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <PrintQRDialog voters={voters} />
+          <VoterUploader />
           {Object.keys(rowSelection).filter(k => rowSelection[k]).length > 0 && (
-            <Button variant="outline" onClick={handlePrintBulk}>
-              <Printer className="mr-2 h-4 w-4" />
-              Print Selected QR
-            </Button>
+            <>
+              <Button variant="destructive" onClick={handleBulkDelete} disabled={bulkDeleteMutation.isPending}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Hapus Terpilih
+              </Button>
+              <Button variant="outline" onClick={handlePrintBulk}>
+                <Printer className="mr-2 h-4 w-4" />
+                Print Selected QR
+              </Button>
+            </>
           )}
           <Button onClick={() => navigate('/admin/voters/create')}>
             <Plus className="mr-2 h-4 w-4" />
@@ -199,6 +246,23 @@ export default function VotersPageIndex() {
       ) : (
         <DataTable columns={columns} data={voters} rowSelection={rowSelection} setRowSelection={setRowSelection} />
       )}
+      
+      <ConfirmDialog
+        open={!!deleteId}
+        onOpenChange={(o) => !o && setDeleteId(null)}
+        title="Hapus Voter"
+        description="Apakah Anda yakin ingin menghapus voter ini? Tindakan ini tidak dapat dibatalkan."
+        onConfirm={confirmDelete}
+        isLoading={deleteMutation.isPending}
+      />
+      <ConfirmDialog
+        open={showBulkDelete}
+        onOpenChange={setShowBulkDelete}
+        title="Hapus Voter Terpilih"
+        description={`Apakah Anda yakin ingin menghapus ${Object.keys(rowSelection).filter(k => rowSelection[k]).length} voter terpilih? Tindakan ini tidak dapat dibatalkan.`}
+        onConfirm={confirmBulkDelete}
+        isLoading={bulkDeleteMutation.isPending}
+      />
     </div>
   )
 }

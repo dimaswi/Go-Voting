@@ -120,6 +120,8 @@ export const votersAPI = {
     api.get(`/admin/events/${eventId}/voters`, { params }),
   assignToEvent: (eventId: string, voterIds: string[]) =>
     api.post(`/admin/events/${eventId}/voters/assign`, { voter_ids: voterIds }),
+  removeFromEvent: (eventId: string, voterId: string) =>
+    api.delete(`/admin/events/${eventId}/voters/${voterId}`),
 }
 
 // ============================================================

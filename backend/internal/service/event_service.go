@@ -34,7 +34,7 @@ func (s *EventService) List(ctx context.Context, search, status string, page, pe
 	if page < 1 {
 		page = 1
 	}
-	if perPage < 1 || perPage > 100 {
+	if perPage < 1 || perPage > 1000000 {
 		perPage = 20
 	}
 	return s.eventRepo.List(ctx, search, status, page, perPage)

@@ -21,6 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 
 
 export default function ShowEventPage() {
@@ -34,6 +35,9 @@ export default function ShowEventPage() {
   const [showAssignVoters, setShowAssignVoters] = useState(false)
   const [selectedCandidates, setSelectedCandidates] = useState<Record<string, { number: number }>>({})
   const [selectedVoterIds, setSelectedVoterIds] = useState<string[]>([])
+  const [selectedToRemove, setSelectedToRemove] = useState<string[]>([])
+  const [deleteVoterId, setDeleteVoterId] = useState<string | null>(null)
+  const [showBulkRemoveVoter, setShowBulkRemoveVoter] = useState(false)
 
   const { data: eventData, isLoading } = useQuery({
     queryKey: ['event', id],
@@ -49,19 +53,19 @@ export default function ShowEventPage() {
 
   const { data: eventVotersData } = useQuery({
     queryKey: ['event-voters', id],
-    queryFn: () => votersAPI.listByEvent(id!),
+    queryFn: () => votersAPI.listByEvent(id!, { per_page: 100000 }),
     enabled: !!id,
   })
 
   const { data: allCandidatesData } = useQuery({
     queryKey: ['all-candidates', candidateSearch],
-    queryFn: () => candidatesAPI.list({ search: candidateSearch, is_active: true, per_page: 50 }),
+    queryFn: () => candidatesAPI.list({ search: candidateSearch, is_active: true, per_page: 100000 }),
     enabled: showAssignCandidates,
   })
 
   const { data: allVotersData } = useQuery({
     queryKey: ['all-voters', voterSearch],
-    queryFn: () => votersAPI.list({ search: voterSearch, per_page: 50 }),
+    queryFn: () => votersAPI.list({ search: voterSearch, per_page: 100000 }),
     enabled: showAssignVoters,
   })
 
@@ -104,6 +108,22 @@ export default function ShowEventPage() {
     },
   })
 
+  const removeVoterMutation = useMutation({
+    mutationFn: (voterId: string) => votersAPI.removeFromEvent(id!, voterId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['event-voters', id] })
+    },
+  })
+
+  const removeBulkVotersMutation = useMutation({
+    mutationFn: (voterIds: string[]) => Promise.all(voterIds.map(voterId => votersAPI.removeFromEvent(id!, voterId))),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['event-voters', id] })
+      qc.invalidateQueries({ queryKey: ['event', id] })
+      setSelectedToRemove([])
+    },
+  })
+
   const event: VotingEvent | undefined = eventData?.data?.data
   const eventCandidates: EventCandidate[] = eventCandidatesData?.data?.data || []
   const eventVoters: EventVoter[] = eventVotersData?.data?.data || []
@@ -137,6 +157,27 @@ export default function ShowEventPage() {
       sort_order: eventCandidates.length + idx,
     }))
     assignCandidatesMutation.mutate(candidates)
+  }
+
+  const confirmRemoveVoter = () => {
+    if (!deleteVoterId) return
+    toast.promise(removeVoterMutation.mutateAsync(deleteVoterId).finally(() => setDeleteVoterId(null)), {
+      loading: 'Menghapus voter dari event...',
+      success: 'Voter berhasil dihapus dari event!',
+      error: 'Gagal menghapus voter'
+    })
+  }
+
+  const confirmBulkRemoveVoters = () => {
+    if (selectedToRemove.length === 0) {
+      setShowBulkRemoveVoter(false)
+      return
+    }
+    toast.promise(removeBulkVotersMutation.mutateAsync(selectedToRemove).finally(() => setShowBulkRemoveVoter(false)), {
+      loading: 'Menghapus voter dari event...',
+      success: 'Voter berhasil dihapus dari event!',
+      error: 'Gagal menghapus voter'
+    })
   }
 
   const handlePrintEventVoters = async () => {
@@ -323,8 +364,26 @@ export default function ShowEventPage() {
             {activeTab === 'voters' && (
               <div>
                 <div className="flex items-center justify-between px-5 py-4 border-b">
-                  <p className="text-sm text-muted-foreground">{eventVoters.length} voter di-assign</p>
+                  <div className="flex items-center">
+                    <Checkbox
+                      className="mr-3"
+                      checked={eventVoters.length > 0 && selectedToRemove.length === eventVoters.length}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedToRemove(eventVoters.map(ev => ev.voter_id))
+                        } else {
+                          setSelectedToRemove([])
+                        }
+                      }}
+                    />
+                    <p className="text-sm text-muted-foreground">{eventVoters.length} voter di-assign</p>
+                  </div>
                   <div className="flex gap-2">
+                    {selectedToRemove.length > 0 && (
+                      <Button size="sm" variant="destructive" onClick={() => setShowBulkRemoveVoter(true)} disabled={removeBulkVotersMutation.isPending}>
+                        <Trash2 className="w-4 h-4 mr-2" /> Hapus {selectedToRemove.length}
+                      </Button>
+                    )}
                     <Button size="sm" variant="outline" onClick={handlePrintEventVoters} disabled={eventVoters.length === 0}>
                       <Printer className="w-4 h-4 mr-2" /> Print Semua QR
                     </Button>
@@ -342,6 +401,16 @@ export default function ShowEventPage() {
                   <div className="divide-y">
                     {eventVoters.map(ev => (
                       <div key={ev.id} className="flex items-center gap-4 px-5 py-3.5 hover:bg-muted/50">
+                        <Checkbox 
+                          checked={selectedToRemove.includes(ev.voter_id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedToRemove(prev => [...prev, ev.voter_id])
+                            } else {
+                              setSelectedToRemove(prev => prev.filter(id => id !== ev.voter_id))
+                            }
+                          }}
+                        />
                         <div className="flex-1">
                           <p className="font-medium text-sm">
                             {ev.is_anonymous ? '🔒 Anonim' : ev.full_name}
@@ -360,6 +429,14 @@ export default function ShowEventPage() {
                               <ExternalLink className="w-4 h-4" />
                             </a>
                           )}
+                          <Button
+                            variant="ghost" size="icon"
+                            disabled={removeVoterMutation.isPending}
+                            onClick={() => setDeleteVoterId(ev.voter_id)}
+                            className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                         </div>
                       </div>
                     ))}
@@ -418,10 +495,43 @@ export default function ShowEventPage() {
       {/* Assign Candidates Dialog */}
       <Dialog open={showAssignCandidates} onOpenChange={setShowAssignCandidates}>
         <DialogContent className="max-w-xl max-h-[80vh] flex flex-col p-0">
-          <DialogHeader className="p-6 pb-2">
+          <DialogHeader className="px-6 pt-6 pb-2 border-b">
             <DialogTitle>Assign Kandidat ke Event</DialogTitle>
           </DialogHeader>
-          <div className="px-6 pb-2">
+          <div className="px-6 py-3 flex items-center justify-between border-b bg-muted/30">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                checked={
+                  allCandidates.length > 0 &&
+                  allCandidates.every(c => !!selectedCandidates[c.id] || eventCandidates.some(ec => ec.candidate_id === c.id))
+                }
+                onCheckedChange={(checked) => {
+                  if (checked) {
+                    const toAdd = allCandidates.filter(c => !eventCandidates.some(ec => ec.candidate_id === c.id))
+                    setSelectedCandidates(prev => {
+                      const next = { ...prev }
+                      let offset = maxExistingNumber + Object.keys(prev).length + 1
+                      toAdd.forEach(c => {
+                        if (!next[c.id]) {
+                          next[c.id] = { number: offset++ }
+                        }
+                      })
+                      return next
+                    })
+                  } else {
+                    const pageIds = allCandidates.map(c => c.id)
+                    setSelectedCandidates(prev => {
+                      const next = { ...prev }
+                      pageIds.forEach(id => delete next[id])
+                      return next
+                    })
+                  }
+                }}
+              />
+              <span className="text-sm font-medium">Pilih Semua {candidateSearch && "yang difilter"}</span>
+            </div>
+          </div>
+          <div className="px-6 py-2">
             <Input
               value={candidateSearch}
               onChange={e => setCandidateSearch(e.target.value)}
@@ -437,7 +547,7 @@ export default function ShowEventPage() {
                   key={c.id}
                   className={cn(
                     "flex items-center gap-3 px-6 py-3 transition",
-                    isAlreadyAssigned ? "opacity-50 cursor-not-allowed" : "hover:bg-muted cursor-pointer",
+                    isAlreadyAssigned ? "opacity-50 cursor-not-allowed bg-muted/50" : "hover:bg-muted cursor-pointer",
                     isSelected && "bg-primary/5"
                   )}
                   onClick={() => {
@@ -452,7 +562,7 @@ export default function ShowEventPage() {
                     })
                   }}
                 >
-                  <Checkbox checked={isSelected || isAlreadyAssigned} />
+                  <Checkbox checked={isSelected || isAlreadyAssigned} disabled={isAlreadyAssigned} />
                   {c.photo_url && <img src={c.photo_url} alt={c.full_name} className="w-8 h-8 rounded-lg object-cover" />}
                   <div className="flex-1">
                     <p className="text-sm font-medium">{c.full_name}</p>
@@ -489,10 +599,32 @@ export default function ShowEventPage() {
       {/* Assign Voters Dialog */}
       <Dialog open={showAssignVoters} onOpenChange={setShowAssignVoters}>
         <DialogContent className="max-w-xl max-h-[80vh] flex flex-col p-0">
-          <DialogHeader className="p-6 pb-2">
+          <DialogHeader className="px-6 pt-6 pb-2 border-b">
             <DialogTitle>Assign Voter ke Event</DialogTitle>
           </DialogHeader>
-          <div className="px-6 pb-2">
+          <div className="px-6 py-3 flex items-center justify-between border-b bg-muted/30">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                checked={
+                  allVoters.length > 0 &&
+                  allVoters.every(v => selectedVoterIds.includes(v.id) || eventVoters.some(ev => ev.voter_id === v.id))
+                }
+                onCheckedChange={(checked) => {
+                  if (checked) {
+                    const toAdd = allVoters
+                      .filter(v => !eventVoters.some(ev => ev.voter_id === v.id))
+                      .map(v => v.id)
+                    setSelectedVoterIds(prev => [...new Set([...prev, ...toAdd])])
+                  } else {
+                    const pageIds = allVoters.map(v => v.id)
+                    setSelectedVoterIds(prev => prev.filter(id => !pageIds.includes(id)))
+                  }
+                }}
+              />
+              <span className="text-sm font-medium">Pilih Semua {voterSearch && "yang difilter"}</span>
+            </div>
+          </div>
+          <div className="px-6 py-2">
             <Input
               value={voterSearch}
               onChange={e => setVoterSearch(e.target.value)}
@@ -508,7 +640,7 @@ export default function ShowEventPage() {
                   key={v.id}
                   className={cn(
                     "flex items-center gap-3 px-6 py-3 transition",
-                    isAlreadyAssigned ? "opacity-50 cursor-not-allowed" : "hover:bg-muted cursor-pointer",
+                    isAlreadyAssigned ? "opacity-50 cursor-not-allowed bg-muted/50" : "hover:bg-muted cursor-pointer",
                     isSelected && "bg-primary/5"
                   )}
                   onClick={() => {
@@ -518,7 +650,7 @@ export default function ShowEventPage() {
                     )
                   }}
                 >
-                  <Checkbox checked={isSelected || isAlreadyAssigned} />
+                  <Checkbox checked={isSelected || isAlreadyAssigned} disabled={isAlreadyAssigned} />
                   <div className="flex-1">
                     <p className="text-sm font-medium">{v.full_name}</p>
                     <p className="text-xs text-muted-foreground font-mono">{v.unique_code}</p>
@@ -539,6 +671,23 @@ export default function ShowEventPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!deleteVoterId}
+        onOpenChange={(o) => !o && setDeleteVoterId(null)}
+        title="Hapus Voter"
+        description="Apakah Anda yakin ingin menghapus voter ini dari event? Tindakan ini tidak dapat dibatalkan."
+        onConfirm={confirmRemoveVoter}
+        isLoading={removeVoterMutation.isPending}
+      />
+      <ConfirmDialog
+        open={showBulkRemoveVoter}
+        onOpenChange={setShowBulkRemoveVoter}
+        title="Hapus Voter Terpilih"
+        description={`Apakah Anda yakin ingin menghapus ${selectedToRemove.length} voter terpilih dari event ini?`}
+        onConfirm={confirmBulkRemoveVoters}
+        isLoading={removeBulkVotersMutation.isPending}
+      />
     </div>
   )
 }

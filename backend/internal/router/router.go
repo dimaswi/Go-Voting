@@ -102,6 +102,7 @@ func Setup(cfg *config.Config, h *Handlers) *gin.Engine {
 			// Event Voters
 			events.GET("/:id/voters", h.Voter.ListByEvent)
 			events.POST("/:id/voters/assign", h.Voter.AssignToEvent)
+			events.DELETE("/:id/voters/:voter_id", h.Voter.RemoveFromEvent)
 
 			// Results
 			events.GET("/:id/results", h.Voting.GetResults)

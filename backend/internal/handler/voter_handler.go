@@ -222,3 +222,24 @@ func (h *VoterHandler) AssignToEvent(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Voters assigned to event"})
 }
+
+// DELETE /api/admin/events/:id/voters/:voter_id
+func (h *VoterHandler) RemoveFromEvent(c *gin.Context) {
+	eventID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid event ID"})
+		return
+	}
+	voterID, err := uuid.Parse(c.Param("voter_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid voter ID"})
+		return
+	}
+
+	if err := h.voterService.RemoveFromEvent(c.Request.Context(), eventID, voterID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Voter removed from event"})
+}

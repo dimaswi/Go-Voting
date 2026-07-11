@@ -45,7 +45,7 @@ export default function EventsPageIndex() {
     queryFn: () => eventsAPI.list({
       search,
       status: statusFilter === "all" ? "" : statusFilter,
-      per_page: 100 // for simplicity, assuming data table handles client-side pagination or we hook it up
+      per_page: 100000
     }),
   })
 

@@ -47,7 +47,7 @@ func (s *VoterService) List(ctx context.Context, search, status string, page, pe
 	if page < 1 {
 		page = 1
 	}
-	if perPage < 1 || perPage > 100 {
+	if perPage < 1 || perPage > 1000000 {
 		perPage = 20
 	}
 	return s.voterRepo.List(ctx, search, status, page, perPage)
@@ -148,12 +148,17 @@ func (s *VoterService) AssignToEvent(ctx context.Context, eventID uuid.UUID, vot
 	return s.eventVoterRepo.BulkAssign(ctx, eventID, voterIDs)
 }
 
+// RemoveFromEvent removes a voter from an event
+func (s *VoterService) RemoveFromEvent(ctx context.Context, eventID, voterID uuid.UUID) error {
+	return s.eventVoterRepo.Remove(ctx, eventID, voterID)
+}
+
 // ListByEvent lists voters assigned to an event
 func (s *VoterService) ListByEvent(ctx context.Context, eventID uuid.UUID, search, votedFilter string, page, perPage int) ([]model.EventVoter, int, error) {
 	if page < 1 {
 		page = 1
 	}
-	if perPage < 1 || perPage > 100 {
+	if perPage < 1 || perPage > 1000000 {
 		perPage = 20
 	}
 	return s.eventVoterRepo.ListByEvent(ctx, eventID, search, votedFilter, page, perPage)
@@ -195,16 +200,29 @@ func (s *VoterService) GenerateBulkQRPDF(ctx context.Context, voterIDs []uuid.UU
 	}
 
 	pdf := gofpdf.New("P", "mm", "A4", "")
+	pdf.SetAutoPageBreak(false, 0)
 	pdf.AddPage()
 
 	cols := 4
 	rows := 5
 
 	pageWidth, pageHeight := pdf.GetPageSize()
-	marginX, marginY := 10.0, 10.0
 
-	colWidth := (pageWidth - 2*marginX) / float64(cols)
-	rowHeight := (pageHeight - 2*marginY) / float64(rows)
+	qrSize := 31.0
+	boxWidth := 46.0
+	boxHeight := 48.0
+
+	gapX := 2.5
+	gapY := 3.0
+
+	colWidth := boxWidth + gapX
+	rowHeight := boxHeight + gapY
+
+	gridWidth := float64(cols)*colWidth - gapX
+	gridHeight := float64(rows)*rowHeight - gapY
+
+	marginX := (pageWidth - gridWidth) / 2.0
+	marginY := (pageHeight - gridHeight) / 2.0
 
 	idx := 0
 	for _, v := range voters {
@@ -219,7 +237,12 @@ func (s *VoterService) GenerateBulkQRPDF(ctx context.Context, voterIDs []uuid.UU
 		x := marginX + float64(col)*colWidth
 		y := marginY + float64(row)*rowHeight
 
-		qrBytes, err := qrcode.Encode(v.UniqueCode, qrcode.Medium, 256)
+		qr, err := qrcode.New(v.UniqueCode, qrcode.Medium)
+		if err != nil {
+			continue
+		}
+		qr.DisableBorder = true
+		qrBytes, err := qr.PNG(256)
 		if err != nil {
 			continue
 		}
@@ -228,22 +251,48 @@ func (s *VoterService) GenerateBulkQRPDF(ctx context.Context, voterIDs []uuid.UU
 		imageName := v.ID.String()
 		pdf.RegisterImageOptionsReader(imageName, opt, bytes.NewReader(qrBytes))
 
-		qrSize := 38.0
-		qrX := x + (colWidth-qrSize)/2
-		qrY := y + 2.0
+		qrX := x + (boxWidth-qrSize)/2.0
+		qrY := y + 3.5
 
 		pdf.ImageOptions(imageName, qrX, qrY, qrSize, qrSize, false, opt, 0, "")
 
+		name := v.FullName
+		groupName := "-"
+		if v.GroupName != nil && *v.GroupName != "" {
+			groupName = *v.GroupName
+		}
+
+		textY := qrY + qrSize + 2.0
+
 		pdf.SetFont("Arial", "B", 9)
-		pdf.SetXY(x, qrY+qrSize)
-		pdf.CellFormat(colWidth, 4, v.FullName, "", 1, "C", false, 0, "")
+		if pdf.GetStringWidth(name) > boxWidth-2 {
+			pdf.SetFont("Arial", "B", 8)
+			if pdf.GetStringWidth(name) > boxWidth-2 {
+				pdf.SetFont("Arial", "B", 7)
+				if pdf.GetStringWidth(name) > boxWidth-2 {
+					pdf.SetFont("Arial", "B", 6)
+				}
+			}
+		}
+		pdf.SetXY(x, textY)
+		pdf.CellFormat(boxWidth, 4.0, name, "", 0, "C", false, 0, "")
+
+		pdf.SetFont("Arial", "I", 8)
+		if pdf.GetStringWidth(groupName) > boxWidth-2 {
+			pdf.SetFont("Arial", "I", 7)
+			if pdf.GetStringWidth(groupName) > boxWidth-2 {
+				pdf.SetFont("Arial", "I", 6)
+			}
+		}
+		pdf.SetXY(x, textY+3.5)
+		pdf.CellFormat(boxWidth, 4.0, groupName, "", 0, "C", false, 0, "")
 
 		pdf.SetFont("Arial", "", 8)
-		pdf.SetXY(x, qrY+qrSize+4)
-		pdf.CellFormat(colWidth, 4, "Kode: "+v.UniqueCode, "", 1, "C", false, 0, "")
+		pdf.SetXY(x, textY+7.5)
+		pdf.CellFormat(boxWidth, 4.0, "Kode: "+v.UniqueCode, "", 0, "C", false, 0, "")
 
-		// Draw border mepet
-		pdf.Rect(x+1, y+1, colWidth-2, qrSize+9, "D")
+		// Draw border
+		pdf.Rect(x, y, boxWidth, boxHeight, "D")
 
 		idx++
 	}

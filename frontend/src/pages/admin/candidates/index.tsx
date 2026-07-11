@@ -52,7 +52,7 @@ export default function CandidatesPageIndex() {
     queryFn: () => candidatesAPI.list({
       search,
       is_active: isActiveFilter === "all" ? "" : isActiveFilter,
-      per_page: 100
+      per_page: 100000
     }),
   })
 
